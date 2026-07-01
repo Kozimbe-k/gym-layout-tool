@@ -3,10 +3,17 @@ import { supabase } from '../supabaseClient.js'
 
 const router = Router()
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
+  if (!supabase) {
+    return res.json({ status: 'ok', supabaseConfigured: false })
+  }
+
+  const { error } = await supabase.storage.listBuckets()
   res.json({
     status: 'ok',
-    supabaseConfigured: Boolean(supabase),
+    supabaseConfigured: true,
+    supabaseConnected: !error,
+    supabaseError: error?.message,
   })
 })
 
