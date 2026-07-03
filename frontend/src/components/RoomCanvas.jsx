@@ -13,7 +13,16 @@ const ZONE_COLORS = {
 }
 const FALLBACK = { area: '#f9fafb', fill: '#d1d5db', stroke: '#374151' }
 
-export default function RoomCanvas({ layout, positions, onMove }) {
+function wallSegment(opening, px, roomW, roomH, PADDING) {
+  const { wall, offsetM, widthM } = opening
+  if (wall === 'top') return [px(offsetM), PADDING, px(offsetM + widthM), PADDING]
+  if (wall === 'bottom')
+    return [px(offsetM), PADDING + roomH, px(offsetM + widthM), PADDING + roomH]
+  if (wall === 'left') return [PADDING, px(offsetM), PADDING, px(offsetM + widthM)]
+  return [PADDING + roomW, px(offsetM), PADDING + roomW, px(offsetM + widthM)]
+}
+
+export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
   if (!layout) return null
   const { lengthM, widthM } = layout
 
@@ -60,9 +69,55 @@ export default function RoomCanvas({ layout, positions, onMove }) {
           )
         })}
 
+        {(layout.doorZones || []).map((z, i) => (
+          <Group key={`dz${i}`} listening={false}>
+            <Rect
+              x={px(z.x)}
+              y={px(z.y)}
+              width={z.w * scale}
+              height={z.h * scale}
+              fill="rgba(254, 226, 226, 0.6)"
+              stroke="#ef4444"
+              strokeWidth={1}
+              dash={[4, 3]}
+            />
+            <Text
+              x={px(z.x)}
+              y={px(z.y)}
+              width={z.w * scale}
+              height={z.h * scale}
+              text="DOOR"
+              fontSize={8}
+              fill="#b91c1c"
+              align="center"
+              verticalAlign="middle"
+            />
+          </Group>
+        ))}
+        {(layout.doors || []).map((d, i) => (
+          <Line
+            key={`door${i}`}
+            points={wallSegment(d, px, roomW, roomH, PADDING)}
+            stroke="#ffffff"
+            strokeWidth={6}
+            listening={false}
+          />
+        ))}
+        {(layout.windows || []).map((wd, i) => (
+          <Line
+            key={`win${i}`}
+            points={wallSegment(wd, px, roomW, roomH, PADDING)}
+            stroke="#60a5fa"
+            strokeWidth={5}
+            listening={false}
+          />
+        ))}
+
         {layout.placements.map((p) => {
           const c = ZONE_COLORS[p.zone] || FALLBACK
           const pos = positions[p.id] || { x: p.x, y: p.y }
+          const conflict = conflictIds?.has(p.id)
+          const stroke = conflict ? '#dc2626' : c.stroke
           const w = p.w * scale
           const h = p.h * scale
           const cl = p.clearanceM * scale
@@ -81,8 +136,8 @@ export default function RoomCanvas({ layout, positions, onMove }) {
                 onMove(p.id, { x: snap(e.target.x()), y: snap(e.target.y()) })
               }}
             >
-              <Rect width={w} height={h} fill={c.fill} opacity={0.25} stroke={c.stroke} strokeWidth={1} dash={[3, 3]} />
-              <Rect x={cl} y={cl} width={w - 2 * cl} height={h - 2 * cl} fill={c.fill} stroke={c.stroke} strokeWidth={1.5} cornerRadius={2} />
+              <Rect width={w} height={h} fill={c.fill} opacity={0.25} stroke={stroke} strokeWidth={conflict ? 1.5 : 1} dash={[3, 3]} />
+              <Rect x={cl} y={cl} width={w - 2 * cl} height={h - 2 * cl} fill={c.fill} stroke={stroke} strokeWidth={conflict ? 2.5 : 1.5} cornerRadius={2} />
               <Text
                 x={cl}
                 y={cl}

@@ -102,6 +102,39 @@ test('placement rate stays reasonable', () => {
   }
 })
 
+test('no placement intersects a door swing zone', () => {
+  const doorSets = [
+    [{ wall: 'top', offsetM: 2, widthM: 1.2 }],
+    [
+      { wall: 'left', offsetM: 0.5, widthM: 1 },
+      { wall: 'bottom', offsetM: 8, widthM: 1.5 },
+    ],
+    // corner door: swing zone overlaps two wall strips
+    [{ wall: 'top', offsetM: 0, widthM: 1.2 }],
+  ]
+  for (const doors of doorSets) {
+    for (const [l, w] of [
+      [12, 9],
+      [25, 20],
+    ]) {
+      const recommendation = recommend({ areaSqm: l * w, spaceTypes, equipment })
+      const layout = layoutRoom({ lengthM: l, widthM: w, recommendation, equipment, doors })
+      for (const p of layout.placements) {
+        for (const z of layout.doorZones) {
+          const overlap =
+            p.x < z.x + z.w - EPS &&
+            z.x < p.x + p.w - EPS &&
+            p.y < z.y + z.h - EPS &&
+            z.y < p.y + p.h - EPS
+          assert.ok(!overlap, `${p.id} intersects door zone in ${l}x${w}`)
+        }
+      }
+      const unplacedCount = layout.unplaced.reduce((s, u) => s + u.quantity, 0)
+      assert.equal(layout.placements.length + unplacedCount, recommendation.totalUnits)
+    }
+  }
+})
+
 test('degenerate rooms do not crash', () => {
   for (const [l, w] of [
     [1, 1],

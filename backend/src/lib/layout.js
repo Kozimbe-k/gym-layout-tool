@@ -146,11 +146,69 @@ function sliceAndPack(free, units, isLast) {
   return best
 }
 
-function runPass(zonesWithUnits, lengthM, widthM) {
+// r minus cut, as up to 4 rectangles
+function rectSubtract(r, cut) {
+  const ix1 = Math.max(r.x, cut.x)
+  const iy1 = Math.max(r.y, cut.y)
+  const ix2 = Math.min(r.x + r.w, cut.x + cut.w)
+  const iy2 = Math.min(r.y + r.h, cut.y + cut.h)
+  if (ix1 >= ix2 - EPS || iy1 >= iy2 - EPS) return [r]
+  const out = []
+  if (iy1 > r.y + EPS) out.push({ x: r.x, y: r.y, w: r.w, h: iy1 - r.y })
+  if (iy2 < r.y + r.h - EPS) out.push({ x: r.x, y: iy2, w: r.w, h: r.y + r.h - iy2 })
+  if (ix1 > r.x + EPS) out.push({ x: r.x, y: iy1, w: ix1 - r.x, h: iy2 - iy1 })
+  if (ix2 < r.x + r.w - EPS) out.push({ x: ix2, y: iy1, w: r.x + r.w - ix2, h: iy2 - iy1 })
+  return out
+}
+
+// A door needs its swing area (widthM deep) kept clear. Carve a strip off the
+// free rect for each wall that has doors; the parts of the strip not in front
+// of a door come back as usable pockets.
+function carveDoors(lengthM, widthM, doors) {
+  const doorZones = doors.map((d) => {
+    const depth = d.widthM
+    if (d.wall === 'top') return { x: d.offsetM, y: 0, w: d.widthM, h: depth }
+    if (d.wall === 'bottom') return { x: d.offsetM, y: widthM - depth, w: d.widthM, h: depth }
+    if (d.wall === 'left') return { x: 0, y: d.offsetM, w: depth, h: d.widthM }
+    return { x: lengthM - depth, y: d.offsetM, w: depth, h: d.widthM }
+  })
+
   let free = { x: 0, y: 0, w: lengthM, h: widthM }
+  const pockets = []
+  for (const wall of ['left', 'right', 'top', 'bottom']) {
+    const wallDoors = doors.filter((d) => d.wall === wall)
+    if (wallDoors.length === 0) continue
+    const vertical = wall === 'left' || wall === 'right'
+    const depth = Math.min(
+      Math.max(...wallDoors.map((d) => d.widthM)),
+      vertical ? free.w : free.h,
+    )
+    let strip
+    if (wall === 'left') {
+      strip = { x: free.x, y: free.y, w: depth, h: free.h }
+      free = { x: free.x + depth, y: free.y, w: free.w - depth, h: free.h }
+    } else if (wall === 'right') {
+      strip = { x: free.x + free.w - depth, y: free.y, w: depth, h: free.h }
+      free = { ...free, w: free.w - depth }
+    } else if (wall === 'top') {
+      strip = { x: free.x, y: free.y, w: free.w, h: depth }
+      free = { x: free.x, y: free.y + depth, w: free.w, h: free.h - depth }
+    } else {
+      strip = { x: free.x, y: free.y + free.h - depth, w: free.w, h: depth }
+      free = { ...free, h: free.h - depth }
+    }
+    let parts = [strip]
+    for (const zone of doorZones) parts = parts.flatMap((p) => rectSubtract(p, zone))
+    pockets.push(...parts.filter((p) => p.w > 0.1 && p.h > 0.1))
+  }
+  return { free, doorZones, pockets }
+}
+
+function runPass(zonesWithUnits, initialFree, seedPockets) {
+  let free = { ...initialFree }
   const zoneRects = []
   const placements = []
-  const pockets = [] // unused sub-rectangles for the overflow pass
+  const pockets = [...seedPockets] // unused sub-rectangles for the overflow pass
   let homeless = []
 
   zonesWithUnits.forEach((z, idx) => {
@@ -231,13 +289,15 @@ function runPass(zonesWithUnits, lengthM, widthM) {
   return { zoneRects, placements, homeless }
 }
 
-export function layoutRoom({ lengthM, widthM, recommendation, equipment }) {
+export function layoutRoom({ lengthM, widthM, recommendation, equipment, doors = [] }) {
   const equipmentByName = new Map(equipment.map((e) => [e.name, e]))
   const zonesWithUnits = recommendation.zones
     .map((z) => ({ zone: z.zone, units: expandUnits(z, equipmentByName) }))
     .filter((z) => z.units.length > 0)
 
-  let result = runPass(zonesWithUnits, lengthM, widthM)
+  const { free, doorZones, pockets } = carveDoors(lengthM, widthM, doors)
+
+  let result = runPass(zonesWithUnits, free, pockets)
 
   // retry with starved zones first; keep whichever pass places more
   if (result.homeless.length > 0) {
@@ -248,7 +308,7 @@ export function layoutRoom({ lengthM, widthM, recommendation, equipment }) {
     const reordered = [...zonesWithUnits].sort(
       (a, b) => (homelessByZone.get(b.zone) || 0) - (homelessByZone.get(a.zone) || 0),
     )
-    const retry = runPass(reordered, lengthM, widthM)
+    const retry = runPass(reordered, free, pockets)
     if (retry.placements.length > result.placements.length) result = retry
   }
 
@@ -259,5 +319,5 @@ export function layoutRoom({ lengthM, widthM, recommendation, equipment }) {
     else unplaced.push({ name: u.name, zone: u.zone, quantity: 1 })
   }
 
-  return { zoneRects: result.zoneRects, placements: result.placements, unplaced }
+  return { zoneRects: result.zoneRects, placements: result.placements, unplaced, doorZones }
 }
