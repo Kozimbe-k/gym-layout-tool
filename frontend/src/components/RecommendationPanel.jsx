@@ -1,6 +1,8 @@
 export default function RecommendationPanel({ result }) {
   if (!result) return null
 
+  const unplaced = result.unplaced || []
+
   return (
     <div className="space-y-4">
       <div className="flex items-baseline justify-between">
@@ -10,6 +12,24 @@ export default function RecommendationPanel({ result }) {
           {(result.utilization * 100).toFixed(1)}%)
         </span>
       </div>
+      {unplaced.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <p className="text-sm font-medium text-amber-800">
+            Didn't fit on the floor plan:
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {unplaced.map((u) => (
+              <li key={`${u.zone}-${u.name}`} className="text-sm text-amber-700">
+                {u.name} × {u.quantity}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-amber-600">
+            The room is too tight for these — try different dimensions or remove them from the
+            plan.
+          </p>
+        </div>
+      )}
       {result.zones.map((zone) => {
         const items = zone.items.filter((i) => i.quantity > 0)
         return (

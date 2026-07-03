@@ -1,69 +1,107 @@
-import { Stage, Layer, Rect, Line, Text } from 'react-konva'
+import { Stage, Layer, Rect, Line, Text, Group } from 'react-konva'
 
-const MAX_W = 640
-const MAX_H = 480
+const MAX_W = 760
+const MAX_H = 560
 const PADDING = 40
 
-export default function RoomCanvas({ lengthM, widthM }) {
-  if (!lengthM || !widthM) return null
+const ZONE_COLORS = {
+  'Cardio Zone': { area: '#fef2f2', fill: '#fca5a5', stroke: '#b91c1c' },
+  'Free Weight Zone': { area: '#eff6ff', fill: '#93c5fd', stroke: '#1d4ed8' },
+  'Machine Zone': { area: '#f5f3ff', fill: '#c4b5fd', stroke: '#6d28d9' },
+  'Functional Zone': { area: '#ecfdf5', fill: '#6ee7b7', stroke: '#047857' },
+  'Recovery Zone': { area: '#fffbeb', fill: '#fcd34d', stroke: '#b45309' },
+}
+const FALLBACK = { area: '#f9fafb', fill: '#d1d5db', stroke: '#374151' }
+
+export default function RoomCanvas({ layout, positions, onMove }) {
+  if (!layout) return null
+  const { lengthM, widthM } = layout
 
   const scale = Math.min((MAX_W - PADDING * 2) / lengthM, (MAX_H - PADDING * 2) / widthM)
   const roomW = lengthM * scale
   const roomH = widthM * scale
   const stageW = roomW + PADDING * 2
   const stageH = roomH + PADDING * 2
+  const px = (m) => PADDING + m * scale
 
   const gridLines = []
   for (let x = 1; x < lengthM; x++) {
     gridLines.push(
-      <Line
-        key={`v${x}`}
-        points={[PADDING + x * scale, PADDING, PADDING + x * scale, PADDING + roomH]}
-        stroke="#e5e7eb"
-        strokeWidth={1}
-      />,
+      <Line key={`v${x}`} points={[px(x), PADDING, px(x), PADDING + roomH]} stroke="#e5e7eb" strokeWidth={1} />,
     )
   }
   for (let y = 1; y < widthM; y++) {
     gridLines.push(
-      <Line
-        key={`h${y}`}
-        points={[PADDING, PADDING + y * scale, PADDING + roomW, PADDING + y * scale]}
-        stroke="#e5e7eb"
-        strokeWidth={1}
-      />,
+      <Line key={`h${y}`} points={[PADDING, px(y), PADDING + roomW, px(y)]} stroke="#e5e7eb" strokeWidth={1} />,
     )
   }
 
   return (
     <Stage width={stageW} height={stageH}>
       <Layer>
-        <Rect
-          x={PADDING}
-          y={PADDING}
-          width={roomW}
-          height={roomH}
-          fill="#f9fafb"
-          stroke="#374151"
-          strokeWidth={2}
-        />
+        <Rect x={PADDING} y={PADDING} width={roomW} height={roomH} fill="#ffffff" stroke="#374151" strokeWidth={2} />
         {gridLines}
-        <Text
-          x={PADDING}
-          y={PADDING - 24}
-          width={roomW}
-          align="center"
-          text={`${lengthM} m`}
-          fontSize={14}
-          fill="#374151"
-        />
-        <Text
-          x={PADDING - 34}
-          y={PADDING + roomH / 2 - 7}
-          text={`${widthM} m`}
-          fontSize={14}
-          fill="#374151"
-        />
+
+        {layout.zoneRects.map((z) => {
+          const c = ZONE_COLORS[z.zone] || FALLBACK
+          return (
+            <Group key={z.zone} listening={false}>
+              <Rect x={px(z.x)} y={px(z.y)} width={z.w * scale} height={z.h * scale} fill={c.area} opacity={0.8} />
+              <Text
+                x={px(z.x) + 4}
+                y={px(z.y) + 4}
+                text={z.zone.replace(' Zone', '').toUpperCase()}
+                fontSize={10}
+                fontStyle="bold"
+                fill={c.stroke}
+                opacity={0.7}
+              />
+            </Group>
+          )
+        })}
+
+        {layout.placements.map((p) => {
+          const c = ZONE_COLORS[p.zone] || FALLBACK
+          const pos = positions[p.id] || { x: p.x, y: p.y }
+          const w = p.w * scale
+          const h = p.h * scale
+          const cl = p.clearanceM * scale
+          return (
+            <Group
+              key={p.id}
+              x={px(pos.x)}
+              y={px(pos.y)}
+              draggable
+              dragBoundFunc={(abs) => ({
+                x: Math.max(PADDING, Math.min(abs.x, PADDING + roomW - w)),
+                y: Math.max(PADDING, Math.min(abs.y, PADDING + roomH - h)),
+              })}
+              onDragEnd={(e) => {
+                const snap = (v) => Math.round(((v - PADDING) / scale) / 0.05) * 0.05
+                onMove(p.id, { x: snap(e.target.x()), y: snap(e.target.y()) })
+              }}
+            >
+              <Rect width={w} height={h} fill={c.fill} opacity={0.25} stroke={c.stroke} strokeWidth={1} dash={[3, 3]} />
+              <Rect x={cl} y={cl} width={w - 2 * cl} height={h - 2 * cl} fill={c.fill} stroke={c.stroke} strokeWidth={1.5} cornerRadius={2} />
+              <Text
+                x={cl}
+                y={cl}
+                width={w - 2 * cl}
+                height={h - 2 * cl}
+                text={p.name}
+                fontSize={9}
+                fill="#111827"
+                align="center"
+                verticalAlign="middle"
+                wrap="word"
+                ellipsis
+              />
+            </Group>
+          )
+        })}
+
+        <Text x={PADDING} y={PADDING - 24} width={roomW} align="center" text={`${lengthM} m`} fontSize={14} fill="#374151" />
+        <Text x={PADDING - 34} y={PADDING + roomH / 2 - 7} text={`${widthM} m`} fontSize={14} fill="#374151" />
       </Layer>
     </Stage>
   )
