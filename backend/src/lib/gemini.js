@@ -49,8 +49,10 @@ const RESPONSE_SCHEMA = {
 }
 
 export function geminiConfigured() {
+  // accepts both classic AIza... keys and newer AQ.... Google Cloud keys;
+  // rejects obvious non-keys (paths, spaces)
   const key = process.env.GEMINI_API_KEY
-  return Boolean(key && /^AIza[\w-]{30,}$/.test(key))
+  return Boolean(key && key.length >= 20 && !/[\\/\s]/.test(key))
 }
 
 async function photoAsInlineData(path) {
