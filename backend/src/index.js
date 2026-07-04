@@ -6,6 +6,8 @@ import equipmentRouter from './routes/equipment.js'
 import recommendationsRouter from './routes/recommendations.js'
 import layoutRouter from './routes/layout.js'
 import layoutsRouter from './routes/layouts.js'
+import photosRouter from './routes/photos.js'
+import designSuggestionsRouter from './routes/designSuggestions.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -18,6 +20,8 @@ app.use('/api/equipment', equipmentRouter)
 app.use('/api/recommendations', recommendationsRouter)
 app.use('/api/layout', layoutRouter)
 app.use('/api/layouts', layoutsRouter)
+app.use('/api/photos', photosRouter)
+app.use('/api/design-suggestions', designSuggestionsRouter)
 
 app.listen(PORT, () => {
   console.log(`Backend listening on http://localhost:${PORT}`)

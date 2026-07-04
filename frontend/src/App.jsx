@@ -3,6 +3,7 @@ import RoomForm from './components/RoomForm.jsx'
 import RoomCanvas from './components/RoomCanvas.jsx'
 import RecommendationPanel from './components/RecommendationPanel.jsx'
 import SavedLayouts from './components/SavedLayouts.jsx'
+import DesignSuggestions from './components/DesignSuggestions.jsx'
 
 const rectsOverlap = (a, b) =>
   a.x < b.x + b.w - 0.01 &&
@@ -104,6 +105,7 @@ function App() {
           <RecommendationPanel result={layout} />
         </aside>
 
+        <div className="space-y-6">
         <section className="rounded-lg border border-gray-200 bg-white p-4">
           {layout ? (
             <>
@@ -130,6 +132,8 @@ function App() {
             </div>
           )}
         </section>
+        <DesignSuggestions layout={layout} />
+        </div>
       </main>
     </div>
   )
