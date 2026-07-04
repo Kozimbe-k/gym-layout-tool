@@ -3,8 +3,10 @@ import { useRef, useState } from 'react'
 export default function DesignSuggestions({ layout }) {
   const [photos, setPhotos] = useState([]) // { path, url }
   const [suggestions, setSuggestions] = useState(null)
+  const [render, setRender] = useState(null) // { path, url }
   const [uploading, setUploading] = useState(false)
   const [thinking, setThinking] = useState(false)
+  const [rendering, setRendering] = useState(false)
   const [error, setError] = useState(null)
   const fileRef = useRef(null)
 
@@ -25,6 +27,7 @@ export default function DesignSuggestions({ layout }) {
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`)
       setPhotos(body.photos)
       setSuggestions(null)
+      setRender(null)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -49,10 +52,34 @@ export default function DesignSuggestions({ layout }) {
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`)
       setSuggestions(body)
+      setRender(null)
     } catch (err) {
       setError(err.message)
     } finally {
       setThinking(false)
+    }
+  }
+
+  const visualize = async () => {
+    setRendering(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/design-render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photoPath: photos[0].path,
+          suggestions,
+          equipment: equipment.map((e) => ({ name: e.name, quantity: e.quantity })),
+        }),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`)
+      setRender(body)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setRendering(false)
     }
   }
 
@@ -145,6 +172,40 @@ export default function DesignSuggestions({ layout }) {
           {suggestions.generalNotes && (
             <p className="text-sm text-gray-500">{suggestions.generalNotes}</p>
           )}
+
+          <div>
+            <button
+              type="button"
+              onClick={visualize}
+              disabled={rendering}
+              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {rendering ? 'Generating image… (~20 s)' : render ? 'Regenerate visualization' : 'Visualize in photo'}
+            </button>
+            {render && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="mb-1 text-xs font-medium uppercase text-gray-400">Before</p>
+                  <img
+                    src={photos[0].url}
+                    alt="Room before"
+                    className="w-full rounded-md border border-gray-200"
+                  />
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-medium uppercase text-gray-400">After (AI visualization)</p>
+                  <img
+                    src={render.url}
+                    alt="Room redesigned"
+                    className="w-full rounded-md border border-gray-200"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 sm:col-span-2">
+                  Indicative visualization — proportions and equipment models are approximate.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

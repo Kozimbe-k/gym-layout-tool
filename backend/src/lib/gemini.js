@@ -3,6 +3,8 @@ import { BUCKET } from '../routes/photos.js'
 
 const MODEL = 'gemini-2.5-flash'
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`
+// "nano banana" — Gemini's image generation/editing model; GA id first, preview id as fallback
+const IMAGE_MODELS = ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview']
 
 const RESPONSE_SCHEMA = {
   type: 'object',
@@ -97,4 +99,55 @@ export async function designSuggestions({ photoPaths, room, equipmentSummary }) 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text
   if (!text) throw new Error('Gemini returned no content')
   return JSON.parse(text)
+}
+
+// Edits the room photo into a redesigned version applying the suggestions.
+// Returns a PNG/JPEG buffer.
+export async function renderRedesign({ photoPath, suggestions, equipmentSummary }) {
+  const image = await photoAsInlineData(photoPath)
+
+  const walls = suggestions.wallColors.map((c) => `${c.name} (${c.hex})`).join(', ')
+  const flooring = suggestions.flooring.map((f) => `${f.type} in ${f.color}`).join(' and ')
+  const lighting = suggestions.lighting.map((l) => `${l.type} (${l.placement})`).join('; ')
+
+  const prompt = [
+    'Edit this photo of the room. Keep the exact same room geometry, camera angle, windows and doors.',
+    `Repaint the walls using: ${walls} — use the first as the main wall color and the second as a single accent wall.`,
+    `Install this flooring: ${flooring}.`,
+    `Add this lighting: ${lighting}.`,
+    `Furnish it as a modern commercial gym with this equipment, arranged in sensible zones: ${equipmentSummary}.`,
+    'Photorealistic interior visualization, realistic proportions, clean and well-lit.',
+  ].join(' ')
+
+  const body = {
+    contents: [{ parts: [{ text: prompt }, image] }],
+    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+  }
+
+  let lastError = new Error('no image model available')
+  for (const model of IMAGE_MODELS) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    )
+    if (res.status === 404) {
+      lastError = new Error(`model ${model} not found`)
+      continue
+    }
+    if (!res.ok) {
+      const detail = await res.text()
+      throw new Error(`Gemini image API ${res.status}: ${detail.slice(0, 300)}`)
+    }
+    const data = await res.json()
+    const parts = data.candidates?.[0]?.content?.parts || []
+    const imagePart = parts.find((p) => p.inlineData?.data || p.inline_data?.data)
+    if (!imagePart) throw new Error('Gemini returned no image')
+    const inline = imagePart.inlineData || imagePart.inline_data
+    return { buffer: Buffer.from(inline.data, 'base64'), mimeType: inline.mimeType || inline.mime_type || 'image/png' }
+  }
+  throw lastError
 }
