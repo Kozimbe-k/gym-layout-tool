@@ -71,9 +71,9 @@ export async function designSuggestions({ photoPaths, room, equipmentSummary }) 
   const prompt = [
     'You are an interior design consultant for commercial gyms.',
     `The room is ${room.lengthM} x ${room.widthM} m (${(room.lengthM * room.widthM).toFixed(0)} sqm).`,
-    `Planned equipment: ${equipmentSummary}.`,
+    `Planned equipment (all Matrix Fitness brand — black and dark graphite frames): ${equipmentSummary}.`,
     'Look at the attached photos of the room in its current state.',
-    'Suggest 2-3 wall color options (with hex codes), 1-2 flooring options, and 2-3 lighting recommendations that suit a modern gym, work with the existing daylight and features visible in the photos, and complement the planned equipment zones.',
+    'Suggest 2-3 wall color options (with hex codes), 1-2 flooring options, and 2-3 lighting recommendations that suit a modern gym, work with the existing daylight and features visible in the photos, and complement the dark graphite Matrix Fitness equipment.',
     'Keep every reason to one sentence. Answer in the same language as this prompt.',
   ].join(' ')
 
@@ -116,6 +116,7 @@ export async function renderRedesign({ photoPath, suggestions, equipmentSummary 
     `Install this flooring: ${flooring}.`,
     `Add this lighting: ${lighting}.`,
     `Furnish it as a modern commercial gym with this equipment, arranged in sensible zones: ${equipmentSummary}.`,
+    'All equipment must be Matrix Fitness brand: black and dark graphite frames with the signature Matrix Fitness design language — treadmills with Matrix touchscreen consoles, selectorized strength machines, free-weight racks and benches all in the Matrix Fitness style, with subtle Matrix logos where naturally visible.',
     'Photorealistic interior visualization, realistic proportions, clean and well-lit.',
   ].join(' ')
 
