@@ -1,4 +1,5 @@
 import { Stage, Layer, Rect, Line, Text, Group } from 'react-konva'
+import EquipmentGlyph from './glyphs.jsx'
 
 const MAX_W = 760
 const MAX_H = 560
@@ -137,15 +138,23 @@ export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
               }}
             >
               <Rect width={w} height={h} fill={c.fill} opacity={0.25} stroke={stroke} strokeWidth={conflict ? 1.5 : 1} dash={[3, 3]} />
-              <Rect x={cl} y={cl} width={w - 2 * cl} height={h - 2 * cl} fill={c.fill} stroke={stroke} strokeWidth={conflict ? 2.5 : 1.5} cornerRadius={2} />
+              <Group x={cl} y={cl}>
+                <EquipmentGlyph
+                  name={p.name}
+                  w={w - 2 * cl}
+                  h={h - 2 * cl}
+                  stroke={conflict ? '#dc2626' : '#4b5563'}
+                />
+              </Group>
               <Text
                 x={cl}
                 y={cl}
                 width={w - 2 * cl}
                 height={h - 2 * cl}
                 text={p.name}
-                fontSize={9}
+                fontSize={7}
                 fill="#111827"
+                opacity={0.65}
                 align="center"
                 verticalAlign="middle"
                 wrap="word"
