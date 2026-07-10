@@ -1,11 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { recommend } from './recommendation.js'
-import { spaceTypes, equipment } from '../data/seedData.js'
+import { spaceTypes, equipment } from '../data/testFixtures.js'
 
 // Expected values come from phase1/equipment-recommendation-model.xlsx
 // (Scenario Summary + Recommendation Model sheets), computed independently
-// via spreadsheet formulas — not from this engine.
+// via spreadsheet formulas — not from this engine. The fixture catalog is the
+// placeholder set the spreadsheet was built on (uncapped quantities); the
+// live seedData carries the real Matrix catalog.
 
 const run = (areaSqm) => recommend({ areaSqm, spaceTypes, equipment })
 

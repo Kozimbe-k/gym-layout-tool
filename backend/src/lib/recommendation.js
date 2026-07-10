@@ -19,7 +19,9 @@ export function recommend({ areaSqm, spaceTypes, equipment }) {
       .sort((a, b) => Number(a.priority) - Number(b.priority))
       .map((e) => {
         const unitArea = effectiveAreaSqm(e)
-        const quantity = Math.max(0, Math.floor((budget - used) / unitArea))
+        // max_qty caps how many units of one model a gym should get
+        const cap = Number(e.max_qty) > 0 ? Number(e.max_qty) : Infinity
+        const quantity = Math.min(Math.max(0, Math.floor((budget - used) / unitArea)), cap)
         used += quantity * unitArea
         return {
           name: e.name,

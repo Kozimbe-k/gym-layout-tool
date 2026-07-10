@@ -286,6 +286,56 @@ const GLYPHS = {
   'Massage Chair': massageChair,
 }
 
+// keyword rules for catalog names without an exact glyph (checked in order)
+const KEYWORD_GLYPHS = [
+  ['treadmill', treadmill],
+  ['elliptical', elliptical],
+  ['bike', bike],
+  ['rower', rower],
+  ['rowing', rower],
+  ['climbmill', stairClimber],
+  ['stair', stairClimber],
+  ['smith', smith],
+  ['crossover', cableCrossover],
+  ['functional trainer', cableCrossover],
+  ['multi-station', cableCrossover],
+  ['multi-gym', cableCrossover],
+  ['leg press', legPress],
+  ['hack squat', legPress],
+  ['pendulum squat', legPress],
+  ['belt squat', legPress],
+  ['squat rack', powerRack],
+  ['power station', powerRack],
+  ['pull up', powerRack],
+  ['chin', powerRack],
+  ['weight tree', dumbbellRack],
+  ['barbell rack', dumbbellRack],
+  ['accessory rack', dumbbellRack],
+  ['mat', mats],
+  ['foam roller', foamRollers],
+  ['bench', bench],
+  ['seat', bench],
+  ['preacher', bench],
+]
+
+// what an unknown item most likely is, judged by its zone
+const ZONE_DEFAULTS = {
+  'Cardio Zone': bike,
+  'Free Weight Zone': bench,
+  'Machine Zone': seatedMachine,
+  'Functional Zone': cableCrossover,
+  'Recovery Zone': mats,
+}
+
+function resolveGlyph(name, zone) {
+  if (GLYPHS[name]) return GLYPHS[name]
+  const lower = name.toLowerCase()
+  for (const [keyword, fn] of KEYWORD_GLYPHS) {
+    if (lower.includes(keyword)) return fn
+  }
+  return ZONE_DEFAULTS[zone] || fallback
+}
+
 // Real top-view sprites (e.g. Matrix product images) override the vector
 // glyphs when present. Drop PNGs into frontend/public/sprites/ named after
 // the equipment slug — see the README there. Missing sprites fall back to
@@ -321,9 +371,9 @@ function useSprite(name) {
 
 // Renders the symbol for `name` into a (w × h) box. Symbols are authored
 // landscape; when the placed footprint is portrait, the drawing is rotated.
-export default function EquipmentGlyph({ name, w, h, stroke = '#4b5563' }) {
+export default function EquipmentGlyph({ name, zone, w, h, stroke = '#4b5563' }) {
   const sprite = useSprite(name)
-  const draw = GLYPHS[name] || fallback
+  const draw = resolveGlyph(name, zone)
   const portrait = h > w * 1.05 && (sprite || draw !== fallback)
 
   const content = sprite ? (

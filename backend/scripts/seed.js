@@ -18,7 +18,16 @@ if (st.error) {
   process.exit(1)
 }
 
-const eq = await supabase.from('equipment').upsert(equipment, { onConflict: 'name' })
+// replace-all: the catalog in code is the source of truth
+const del = await supabase.from('equipment').delete().gte('id', 0)
+if (del.error) {
+  console.error('equipment cleanup failed:', del.error.message)
+  process.exit(1)
+}
+
+// max_qty is not a DB column — strip it before insert
+const rows = equipment.map(({ max_qty, ...row }) => row)
+const eq = await supabase.from('equipment').insert(rows)
 if (eq.error) {
   console.error('equipment seed failed:', eq.error.message)
   process.exit(1)

@@ -2,7 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { recommend } from './recommendation.js'
 import { layoutRoom } from './layout.js'
-import { spaceTypes, equipment } from '../data/seedData.js'
+import { spaceTypes, equipment } from '../data/testFixtures.js'
+import { spaceTypes as realSpaceTypes, equipment as realEquipment } from '../data/seedData.js'
 
 const EPS = 1e-6
 const ROOMS = [
@@ -131,6 +132,60 @@ test('no placement intersects a door swing zone', () => {
       }
       const unplacedCount = layout.unplaced.reduce((s, u) => s + u.quantity, 0)
       assert.equal(layout.placements.length + unplacedCount, recommendation.totalUnits)
+    }
+  }
+})
+
+test('real Matrix catalog: geometric invariants hold and caps are respected', () => {
+  for (const [l, w] of [
+    [12, 9],
+    [20, 10],
+    [25, 20],
+    [40, 25],
+  ]) {
+    const recommendation = recommend({
+      areaSqm: l * w,
+      spaceTypes: realSpaceTypes,
+      equipment: realEquipment,
+    })
+    const layout = layoutRoom({
+      lengthM: l,
+      widthM: w,
+      recommendation,
+      equipment: realEquipment,
+    })
+
+    // conservation
+    const unplacedCount = layout.unplaced.reduce((s, u) => s + u.quantity, 0)
+    assert.equal(layout.placements.length + unplacedCount, recommendation.totalUnits)
+
+    // caps respected
+    const capByName = new Map(realEquipment.map((e) => [e.name, e.max_qty]))
+    for (const zone of recommendation.zones) {
+      for (const item of zone.items) {
+        const cap = capByName.get(item.name)
+        if (cap > 0) {
+          assert.ok(item.quantity <= cap, `${item.name} exceeds cap in ${l}x${w}`)
+        }
+      }
+    }
+
+    // no overlaps, in bounds
+    const ps = layout.placements
+    for (const p of ps) {
+      assert.ok(p.x >= -EPS && p.y >= -EPS && p.x + p.w <= l + EPS && p.y + p.h <= w + EPS)
+    }
+    for (let i = 0; i < ps.length; i++) {
+      for (let j = i + 1; j < ps.length; j++) {
+        const a = ps[i]
+        const b = ps[j]
+        const overlap =
+          a.x < b.x + b.w - EPS &&
+          b.x < a.x + a.w - EPS &&
+          a.y < b.y + b.h - EPS &&
+          b.y < a.y + a.h - EPS
+        assert.ok(!overlap, `${a.id} overlaps ${b.id} (real catalog, ${l}x${w})`)
+      }
     }
   }
 })

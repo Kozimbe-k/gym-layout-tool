@@ -202,6 +202,7 @@ export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
               <Group x={cl} y={cl}>
                 <EquipmentGlyph
                   name={p.name}
+                  zone={p.zone}
                   w={w - 2 * cl}
                   h={h - 2 * cl}
                   stroke={conflict ? '#dc2626' : '#4b5563'}
