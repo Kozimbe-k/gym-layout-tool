@@ -26,3 +26,16 @@ Examples with the current Matrix catalog:
 
 The full list of names comes from `GET /api/equipment` or
 `backend/src/data/seedData.js`.
+
+## From DWG CAD blocks
+
+Manufacturer DWG top-view blocks convert directly:
+
+```
+python tools/dwg2sprite.py "path/to/Machine.DWG" "<sprite-slug>"
+```
+
+Requires ODA File Converter (`winget install ODA.ODAFileConverter`) and
+`pip install ezdxf matplotlib pillow`. The script converts DWG→DXF, renders
+the line art, rotates to landscape, fills the interior white and makes the
+outside transparent. DWG source files themselves stay out of git.
