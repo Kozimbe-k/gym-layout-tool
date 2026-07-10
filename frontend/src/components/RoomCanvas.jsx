@@ -1,5 +1,57 @@
-import { Stage, Layer, Rect, Line, Text, Group } from 'react-konva'
+import { useMemo } from 'react'
+import { Stage, Layer, Rect, Line, Text, Group, Shape } from 'react-konva'
 import EquipmentGlyph from './glyphs.jsx'
+import { rubberTilePattern, TILE_PX } from './textures.js'
+
+// door leaf + swing arc, ECdesign-style; hinge sits at the door's offset end
+function DoorSwing({ door, px, scale, PADDING, roomW, roomH }) {
+  const r = door.widthM * scale
+  let hx
+  let hy
+  let startAngle // radians; arc sweeps 90° clockwise from the closed leaf
+  if (door.wall === 'top') {
+    hx = px(door.offsetM)
+    hy = PADDING
+    startAngle = 0
+  } else if (door.wall === 'bottom') {
+    hx = px(door.offsetM)
+    hy = PADDING + roomH
+    startAngle = -Math.PI / 2
+  } else if (door.wall === 'left') {
+    hx = PADDING
+    hy = px(door.offsetM)
+    startAngle = 0
+  } else {
+    hx = PADDING + roomW
+    hy = px(door.offsetM)
+    startAngle = Math.PI / 2
+  }
+  const endAngle = startAngle + Math.PI / 2
+  // open leaf points into the room
+  const leafAngle = door.wall === 'top' || door.wall === 'right' ? endAngle : startAngle
+
+  return (
+    <Group listening={false}>
+      <Shape
+        x={hx}
+        y={hy}
+        sceneFunc={(ctx, shape) => {
+          ctx.beginPath()
+          ctx.arc(0, 0, r, startAngle, endAngle)
+          ctx.fillStrokeShape(shape)
+        }}
+        stroke="#6b7280"
+        strokeWidth={1}
+        dash={[4, 3]}
+      />
+      <Line
+        points={[hx, hy, hx + Math.cos(leafAngle) * r, hy + Math.sin(leafAngle) * r]}
+        stroke="#374151"
+        strokeWidth={2}
+      />
+    </Group>
+  )
+}
 
 const MAX_W = 760
 const MAX_H = 560
@@ -24,6 +76,7 @@ function wallSegment(opening, px, roomW, roomH, PADDING) {
 }
 
 export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
+  const floorPattern = useMemo(() => rubberTilePattern(), [])
   if (!layout) return null
   const { lengthM, widthM } = layout
 
@@ -49,14 +102,23 @@ export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
   return (
     <Stage width={stageW} height={stageH}>
       <Layer>
-        <Rect x={PADDING} y={PADDING} width={roomW} height={roomH} fill="#ffffff" stroke="#374151" strokeWidth={2} />
+        <Rect
+          x={PADDING}
+          y={PADDING}
+          width={roomW}
+          height={roomH}
+          fillPatternImage={floorPattern}
+          fillPatternScale={{ x: (0.5 * scale) / TILE_PX, y: (0.5 * scale) / TILE_PX }}
+          stroke="#374151"
+          strokeWidth={2}
+        />
         {gridLines}
 
         {layout.zoneRects.map((z) => {
           const c = ZONE_COLORS[z.zone] || FALLBACK
           return (
             <Group key={z.zone} listening={false}>
-              <Rect x={px(z.x)} y={px(z.y)} width={z.w * scale} height={z.h * scale} fill={c.area} opacity={0.8} />
+              <Rect x={px(z.x)} y={px(z.y)} width={z.w * scale} height={z.h * scale} fill={c.area} opacity={0.45} />
               <Text
                 x={px(z.x) + 4}
                 y={px(z.y) + 4}
@@ -71,29 +133,17 @@ export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
         })}
 
         {(layout.doorZones || []).map((z, i) => (
-          <Group key={`dz${i}`} listening={false}>
-            <Rect
-              x={px(z.x)}
-              y={px(z.y)}
-              width={z.w * scale}
-              height={z.h * scale}
-              fill="rgba(254, 226, 226, 0.6)"
-              stroke="#ef4444"
-              strokeWidth={1}
-              dash={[4, 3]}
-            />
-            <Text
-              x={px(z.x)}
-              y={px(z.y)}
-              width={z.w * scale}
-              height={z.h * scale}
-              text="DOOR"
-              fontSize={8}
-              fill="#b91c1c"
-              align="center"
-              verticalAlign="middle"
-            />
-          </Group>
+          <Rect
+            key={`dz${i}`}
+            listening={false}
+            x={px(z.x)}
+            y={px(z.y)}
+            width={z.w * scale}
+            height={z.h * scale}
+            stroke="#f87171"
+            strokeWidth={0.8}
+            dash={[3, 3]}
+          />
         ))}
         {(layout.doors || []).map((d, i) => (
           <Line
@@ -102,6 +152,17 @@ export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
             stroke="#ffffff"
             strokeWidth={6}
             listening={false}
+          />
+        ))}
+        {(layout.doors || []).map((d, i) => (
+          <DoorSwing
+            key={`ds${i}`}
+            door={d}
+            px={px}
+            scale={scale}
+            PADDING={PADDING}
+            roomW={roomW}
+            roomH={roomH}
           />
         ))}
         {(layout.windows || []).map((wd, i) => (

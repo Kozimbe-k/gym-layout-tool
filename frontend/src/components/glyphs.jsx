@@ -1,4 +1,5 @@
-import { Rect, Circle, Line, Ellipse, Group } from 'react-konva'
+import { useEffect, useState } from 'react'
+import { Rect, Circle, Line, Ellipse, Group, Image as KonvaImage } from 'react-konva'
 
 // Top-view architectural symbols for gym equipment, drawn in a local
 // (0,0)-(w,h) space assuming landscape orientation (length >= width).
@@ -285,17 +286,59 @@ const GLYPHS = {
   'Massage Chair': massageChair,
 }
 
+// Real top-view sprites (e.g. Matrix product images) override the vector
+// glyphs when present. Drop PNGs into frontend/public/sprites/ named after
+// the equipment slug — see the README there. Missing sprites fall back to
+// the vector drawing, so partial sprite sets are fine.
+const spriteSlug = (name) =>
+  name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+const spriteCache = new Map() // slug -> HTMLImageElement | null (load failed)
+
+function useSprite(name) {
+  const slug = spriteSlug(name)
+  const [img, setImg] = useState(() => spriteCache.get(slug))
+
+  useEffect(() => {
+    if (spriteCache.has(slug)) {
+      setImg(spriteCache.get(slug))
+      return
+    }
+    const image = new window.Image()
+    image.onload = () => {
+      spriteCache.set(slug, image)
+      setImg(image)
+    }
+    image.onerror = () => {
+      spriteCache.set(slug, null)
+      setImg(null)
+    }
+    image.src = `/sprites/${slug}.png`
+  }, [slug])
+
+  return img
+}
+
 // Renders the symbol for `name` into a (w × h) box. Symbols are authored
 // landscape; when the placed footprint is portrait, the drawing is rotated.
 export default function EquipmentGlyph({ name, w, h, stroke = '#4b5563' }) {
+  const sprite = useSprite(name)
   const draw = GLYPHS[name] || fallback
-  if (h > w * 1.05 && draw !== fallback) {
+  const portrait = h > w * 1.05 && (sprite || draw !== fallback)
+
+  const content = sprite ? (
+    <KonvaImage image={sprite} width={portrait ? h : w} height={portrait ? w : h} />
+  ) : (
+    draw({ w: portrait ? h : w, h: portrait ? w : h, stroke })
+  )
+
+  if (portrait) {
     // portrait placement: draw landscape at (h × w), rotate 90° into place
     return (
       <Group x={w} rotation={90}>
-        {draw({ w: h, h: w, stroke })}
+        {content}
       </Group>
     )
   }
-  return <Group>{draw({ w, h, stroke })}</Group>
+  return <Group>{content}</Group>
 }
