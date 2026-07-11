@@ -11,10 +11,25 @@ const rectsOverlap = (a, b) =>
   a.y < b.y + b.h - 0.01 &&
   b.y < a.y + a.h - 0.01
 
+const DECOR_TYPES = {
+  plant: { label: 'Plant', w: 0.5, h: 0.5 },
+  bench: { label: 'Bench', w: 1.5, h: 0.4 },
+  'reception-desk': { label: 'Reception desk', w: 2.0, h: 1.6 },
+  'water-cooler': { label: 'Water cooler', w: 0.45, h: 0.45 },
+}
+
+const FLOOR_OPTIONS = [
+  { value: 'wood', label: 'Wood planks' },
+  { value: 'rubber', label: 'Gray rubber' },
+  { value: 'dark-rubber', label: 'Dark rubber' },
+]
+
 function App() {
   const [room, setRoom] = useState({ lengthM: '12', widthM: '9', doors: [], windows: [] })
   const [layout, setLayout] = useState(null)
   const [positions, setPositions] = useState({})
+  const [floorStyle, setFloorStyle] = useState('wood')
+  const [decor, setDecor] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -41,11 +56,41 @@ function App() {
     setPositions((prev) => ({ ...prev, [id]: pos }))
   }
 
+  const addDecor = (type) => {
+    if (!layout) return
+    const spec = DECOR_TYPES[type]
+    setDecor((prev) => {
+      // stagger spawns so consecutive items don't stack on each other
+      const shift = (prev.length % 5) * 0.7
+      return [
+        ...prev,
+        {
+          id: `decor-${Date.now()}-${prev.length}`,
+          type,
+          x: Math.min(Math.max(0, layout.lengthM / 2 - spec.w / 2 + shift), layout.lengthM - spec.w),
+          y: Math.min(Math.max(0, layout.widthM / 2 - spec.h / 2 + shift), layout.widthM - spec.h),
+          w: spec.w,
+          h: spec.h,
+        },
+      ]
+    })
+  }
+
+  const handleDecorMove = (id, pos) => {
+    setDecor((prev) => prev.map((d) => (d.id === id ? { ...d, ...pos } : d)))
+  }
+
+  const handleDecorRemove = (id) => {
+    setDecor((prev) => prev.filter((d) => d.id !== id))
+  }
+
   const handleLoad = (saved) => {
     const l = saved.data?.layout
     if (!l) return
     setLayout(l)
     setPositions(saved.data.positions || {})
+    setDecor(saved.data.decor || [])
+    setFloorStyle(saved.data.floorStyle || 'wood')
     setRoom({
       lengthM: String(l.lengthM),
       widthM: String(l.widthM),
@@ -101,12 +146,48 @@ function App() {
             <RoomForm value={room} onChange={setRoom} onSubmit={handleSubmit} loading={loading} />
             {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
           </div>
-          <SavedLayouts layout={layout} positions={positions} onLoad={handleLoad} />
+          <SavedLayouts
+            layout={layout}
+            positions={positions}
+            decor={decor}
+            floorStyle={floorStyle}
+            onLoad={handleLoad}
+          />
           <RecommendationPanel result={layout} />
         </aside>
 
         <div className="space-y-6">
         <section className="rounded-lg border border-gray-200 bg-white p-4">
+          {layout && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 border-b border-gray-100 pb-3">
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                Floor
+                <select
+                  value={floorStyle}
+                  onChange={(e) => setFloorStyle(e.target.value)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                >
+                  {FLOOR_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <span className="mx-1 h-5 w-px bg-gray-200" />
+              <span className="text-sm text-gray-600">Add:</span>
+              {Object.entries(DECOR_TYPES).map(([type, spec]) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => addDecor(type)}
+                  className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  + {spec.label}
+                </button>
+              ))}
+            </div>
+          )}
           {layout ? (
             <>
               <RoomCanvas
@@ -114,6 +195,10 @@ function App() {
                 positions={positions}
                 onMove={handleMove}
                 conflictIds={conflictIds}
+                floorStyle={floorStyle}
+                decor={decor}
+                onDecorMove={handleDecorMove}
+                onDecorRemove={handleDecorRemove}
               />
               {conflictIds.size > 0 ? (
                 <p className="mt-2 text-sm font-medium text-red-600">
@@ -122,7 +207,8 @@ function App() {
                 </p>
               ) : (
                 <p className="mt-2 text-xs text-gray-400">
-                  Drag equipment to adjust the layout. Dashed border = required clearance zone.
+                  Drag equipment and decor to adjust the layout. Dashed border = required
+                  clearance zone. Double-click a decor item to remove it.
                 </p>
               )}
             </>

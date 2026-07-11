@@ -377,7 +377,14 @@ export default function EquipmentGlyph({ name, zone, w, h, stroke = '#4b5563' })
   const portrait = h > w * 1.05 && (sprite || draw !== fallback)
 
   const content = sprite ? (
-    <KonvaImage image={sprite} width={portrait ? h : w} height={portrait ? w : h} />
+    <KonvaImage
+      image={sprite}
+      width={portrait ? h : w}
+      height={portrait ? w : h}
+      shadowColor="rgba(15, 18, 22, 0.4)"
+      shadowBlur={5}
+      shadowOffset={{ x: 2.5, y: 3 }}
+    />
   ) : (
     draw({ w: portrait ? h : w, h: portrait ? w : h, stroke })
   )

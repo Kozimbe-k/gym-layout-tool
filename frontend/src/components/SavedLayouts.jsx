@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-export default function SavedLayouts({ layout, positions, onLoad }) {
+export default function SavedLayouts({ layout, positions, decor, floorStyle, onLoad }) {
   const [items, setItems] = useState([])
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -32,7 +32,7 @@ export default function SavedLayouts({ layout, positions, onLoad }) {
           name,
           lengthM: layout.lengthM,
           widthM: layout.widthM,
-          data: { layout, positions },
+          data: { layout, positions, decor, floorStyle },
         }),
       })
       const body = await res.json()

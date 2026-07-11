@@ -1,7 +1,68 @@
-import { useMemo } from 'react'
-import { Stage, Layer, Rect, Line, Text, Group, Shape } from 'react-konva'
+import { useEffect, useMemo, useState } from 'react'
+import { Stage, Layer, Rect, Line, Text, Group, Shape, Circle, Image as KonvaImage } from 'react-konva'
 import EquipmentGlyph from './glyphs.jsx'
-import { rubberTilePattern, TILE_PX } from './textures.js'
+import { FLOOR_STYLES } from './textures.js'
+
+const decorCache = new Map()
+function useDecorSprite(type) {
+  const [img, setImg] = useState(() => decorCache.get(type))
+  useEffect(() => {
+    if (decorCache.has(type)) {
+      setImg(decorCache.get(type))
+      return
+    }
+    const image = new window.Image()
+    image.onload = () => {
+      decorCache.set(type, image)
+      setImg(image)
+    }
+    image.onerror = () => {
+      decorCache.set(type, null)
+      setImg(null)
+    }
+    image.src = `/sprites/decor/${type}.png`
+  }, [type])
+  return img
+}
+
+function DecorItem({ item, scale, PADDING, roomW, roomH, onMove, onRemove }) {
+  const img = useDecorSprite(item.type)
+  const w = item.w * scale
+  const h = item.h * scale
+  return (
+    <Group
+      x={PADDING + item.x * scale}
+      y={PADDING + item.y * scale}
+      draggable
+      dragBoundFunc={(abs) => ({
+        x: Math.max(PADDING, Math.min(abs.x, PADDING + roomW - w)),
+        y: Math.max(PADDING, Math.min(abs.y, PADDING + roomH - h)),
+      })}
+      onDragEnd={(e) => {
+        const snap = (v) => Math.round((v - PADDING) / scale / 0.05) * 0.05
+        onMove(item.id, { x: snap(e.target.x()), y: snap(e.target.y()) })
+      }}
+      onDblClick={() => onRemove(item.id)}
+      onDblTap={() => onRemove(item.id)}
+    >
+      {img ? (
+        <KonvaImage
+          image={img}
+          width={w}
+          height={h}
+          shadowColor="rgba(15, 18, 22, 0.35)"
+          shadowBlur={4}
+          shadowOffset={{ x: 2, y: 2.5 }}
+        />
+      ) : (
+        <>
+          <Rect width={w} height={h} fill="#e5e7eb" stroke="#6b7280" strokeWidth={1} cornerRadius={3} />
+          <Circle x={w / 2} y={h / 2} radius={Math.min(w, h) * 0.3} fill="#9ca3af" />
+        </>
+      )}
+    </Group>
+  )
+}
 
 // door leaf + swing arc, ECdesign-style; hinge sits at the door's offset end
 function DoorSwing({ door, px, scale, PADDING, roomW, roomH }) {
@@ -75,8 +136,18 @@ function wallSegment(opening, px, roomW, roomH, PADDING) {
   return [PADDING + roomW, px(offsetM), PADDING + roomW, px(offsetM + widthM)]
 }
 
-export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
-  const floorPattern = useMemo(() => rubberTilePattern(), [])
+export default function RoomCanvas({
+  layout,
+  positions,
+  onMove,
+  conflictIds,
+  floorStyle = 'wood',
+  decor = [],
+  onDecorMove,
+  onDecorRemove,
+}) {
+  const floor = FLOOR_STYLES[floorStyle] || FLOOR_STYLES.wood
+  const floorPattern = useMemo(() => floor.make(), [floor])
   if (!layout) return null
   const { lengthM, widthM } = layout
 
@@ -108,7 +179,10 @@ export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
           width={roomW}
           height={roomH}
           fillPatternImage={floorPattern}
-          fillPatternScale={{ x: (0.5 * scale) / TILE_PX, y: (0.5 * scale) / TILE_PX }}
+          fillPatternScale={{
+            x: (floor.tileMeters * scale) / floor.tilePx,
+            y: (floor.tileMeters * scale) / floor.tilePx,
+          }}
           stroke="#374151"
           strokeWidth={2}
         />
@@ -118,7 +192,7 @@ export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
           const c = ZONE_COLORS[z.zone] || FALLBACK
           return (
             <Group key={z.zone} listening={false}>
-              <Rect x={px(z.x)} y={px(z.y)} width={z.w * scale} height={z.h * scale} fill={c.area} opacity={0.45} />
+              <Rect x={px(z.x)} y={px(z.y)} width={z.w * scale} height={z.h * scale} fill={c.area} opacity={0.28} />
               <Text
                 x={px(z.x) + 4}
                 y={px(z.y) + 4}
@@ -211,6 +285,19 @@ export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
             </Group>
           )
         })}
+
+        {decor.map((item) => (
+          <DecorItem
+            key={item.id}
+            item={item}
+            scale={scale}
+            PADDING={PADDING}
+            roomW={roomW}
+            roomH={roomH}
+            onMove={onDecorMove}
+            onRemove={onDecorRemove}
+          />
+        ))}
 
         <Text x={PADDING} y={PADDING - 24} width={roomW} align="center" text={`${lengthM} m`} fontSize={14} fill="#374151" />
         <Text x={PADDING - 34} y={PADDING + roomH / 2 - 7} text={`${widthM} m`} fontSize={14} fill="#374151" />
