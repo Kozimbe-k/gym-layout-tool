@@ -208,20 +208,6 @@ export default function RoomCanvas({ layout, positions, onMove, conflictIds }) {
                   stroke={conflict ? '#dc2626' : '#4b5563'}
                 />
               </Group>
-              <Text
-                x={cl}
-                y={cl}
-                width={w - 2 * cl}
-                height={h - 2 * cl}
-                text={p.name}
-                fontSize={7}
-                fill="#111827"
-                opacity={0.65}
-                align="center"
-                verticalAlign="middle"
-                wrap="word"
-                ellipsis
-              />
             </Group>
           )
         })}

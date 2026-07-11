@@ -9,3 +9,4 @@ build/
 matrix-equipment/
 *.DWG
 *.dwg
+__pycache__/
